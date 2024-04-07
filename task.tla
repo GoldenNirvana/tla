@@ -24,15 +24,15 @@ RemoveFromSequenceByIndex(sequence, index) ==
     THEN SubSeq(sequence, 1, index - 1) \o SubSeq(sequence, index + 1, Len(sequence))
     ELSE sequence
 
+\* Удаление из очереди
+PopFromSequence(task) ==
+    Len(inReady[task.priority]) > 0
+    /\ inReady' = [inReady EXCEPT ![task.priority] = SubSeq(inReady[task.priority], 2, Len(inReady[task.priority]))]
+
 \* Добавление в очередь
 AddToQueue(task) ==
     /\ CurrentReadyCount < COUNT_IN_READY
     /\ inReady' = [inReady EXCEPT ![task.priority] = Append(inReady[task.priority], task)]
-
-\* Удаление из очереди
-Pop(task) ==
-    Len(inReady[task.priority]) > 0
-    /\ inReady' = [inReady EXCEPT ![task.priority] = SubSeq(inReady[task.priority], 2, Len(inReady[task.priority]))]
 
 Swap(toPop, toAddToQueue) ==
     inReady' = [inReady EXCEPT
@@ -42,12 +42,11 @@ Swap(toPop, toAddToQueue) ==
 \* Условие запуска задачи (нет задач на исполнение, или есть более высокоприоритетная задача)
 RunTask(task) ==
     \/ /\ isRunning = <<>>
-       /\ Pop(task)
+       /\ PopFromSequence(task)
        /\ isRunning' = Append(isRunning, task)
     \/ /\ isRunning /= <<>>
        /\ Swap(task, isRunning[1])
        /\ isRunning' = <<task>>
-
 
 \* Активация задачи, перенос её из suspended
 ActivateTransition ==
@@ -55,8 +54,6 @@ ActivateTransition ==
         /\ inSuspended' = RemoveFromSequenceByIndex(inSuspended, i)
         /\ AddToQueue(inSuspended[i])
         /\ UNCHANGED <<isRunning, inWaiting>>
-
-
 
 \* Изменение выполняющейся задачи, реализация логики вытеснения низкоприоритетной задачи
 StartTransition ==
