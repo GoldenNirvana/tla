@@ -1,7 +1,7 @@
 /--------------------------------- MODULE task ---------------------------------
 
 EXTENDS Integers, Sequences
-VARIABLES inReady, inSuspended, inWaiting, isRunning
+VARIABLES inReady, inSuspended, inWaiting, inRunning
 COUNT == 1
 COUNT_IN_READY == 1
 PRIORITIES == 0..3
@@ -12,7 +12,7 @@ TASK == [ type: TYPES,  priority: PRIORITIES]
 Init ==
     /\ inSuspended \in [1..COUNT -> TASK]
     /\ inReady = [i \in PRIORITIES |-> <<>>]
-    /\ isRunning = <<>>
+    /\ inRunning = <<>>
     /\ inWaiting = <<>>
 
 \* Всего задач в ready
@@ -26,7 +26,8 @@ RemoveFromSequenceByIndex(sequence, index) ==
 
 \* Удаление из очереди
 PopFromSequence(task) ==
-    inReady' = [inReady EXCEPT ![task.priority] = SubSeq(inReady[task.priority], 2, Len(inReady[task.priority]))]
+    Len(inReady[task.priority]) > 0
+    /\ inReady' = [inReady EXCEPT ![task.priority] = SubSeq(inReady[task.priority], 2, Len(inReady[task.priority]))]
 
 \* Добавление в очередь
 AddToQueue(task) ==
@@ -38,36 +39,33 @@ Swap(toPop, toAddToQueue) ==
         ![toPop.priority] = Tail(inReady[toPop.priority]),
         ![toAddToQueue.priority] = Append(inReady[toAddToQueue.priority], toAddToQueue)]
 
-\* Условие запуска задачи (нет задач на исполнение, или есть более высокоприоритетная задача)
+\* ready -> running
 RunTask(task) ==
-    \/ /\ isRunning = <<>>
+    \/ /\ inRunning = <<>>
        /\ PopFromSequence(task)
-       /\ Len(inReady[task.priority]) > 0
-       /\ isRunning' = Append(<<>>, task)
-    \/ /\ isRunning /= <<>>
-       /\ Swap(task, isRunning[1])
-       /\ isRunning' = <<task>>
+       /\ inRunning' = Append(inRunning, task)
+    \/ /\ inRunning /= <<>>
+       /\ Swap(task, inRunning[1])
+       /\ inRunning' = <<task>>
 
-\* Активация задачи, перенос её из suspended
-ActivateTransition ==
+\* suspended -> ready
+Activate ==
     \E i \in 1..Len(inSuspended):
         /\ inSuspended' = RemoveFromSequenceByIndex(inSuspended, i)
         /\ AddToQueue(inSuspended[i])
-        /\ UNCHANGED <<isRunning, inWaiting>>
+        /\ UNCHANGED <<inRunning, inWaiting>>
 
 \* Изменение выполняющейся задачи, реализация логики вытеснения низкоприоритетной задачи
-StartTransition ==
+Start ==
     /\ CurrentReadyCount /= 0
-    /\ \/ isRunning = <<>>
-       \/ /\ isRunning /= <<>>
+    /\ \/ inRunning = <<>>
+       \/ /\ inRunning /= <<>>
           /\ \E priority \in PRIORITIES:
                  /\ inReady[priority] /= <<>>
-                 /\ isRunning[1].priority < priority
+                 /\ inRunning[1].priority < priority
 
-
-
-\* Выбор задачи на выполнение из очереди
-PreemptTransition ==
+\* running - ready
+Preempt ==
     /\ CASE
        (inReady[3] /= <<>>) -> RunTask(inReady[3][1])
        [] (inReady[2] /= <<>>) -> RunTask(inReady[2][1])
@@ -76,46 +74,45 @@ PreemptTransition ==
        [] OTHER -> FALSE
     /\ UNCHANGED <<inSuspended, inWaiting>>
 
-\* Завершение задачи
-TerminateTransition ==
-    /\ isRunning /= <<>>
-    /\ isRunning' = <<>>
-    /\ inSuspended' = inSuspended \o isRunning
+\* running -> suspended
+Terminate ==
+    /\ inRunning /= <<>>
+    /\ inRunning' = <<>>
+    /\ inSuspended' = inSuspended \o inRunning
     /\ UNCHANGED <<inReady, inWaiting>>
 
-\* Ожидание задачи (только для расширенных задач)
-WaitTransition ==
-    /\ isRunning /= <<>>
-    /\ isRunning[1].type = "extended"
-    /\ inWaiting' = inWaiting \o isRunning
-    /\ isRunning' = <<>>
+\* running -> waiting
+Wait ==
+    /\ inRunning /= <<>>
+    /\ inRunning[1].type = "extended"
+    /\ inWaiting' = inWaiting \o inRunning
+    /\ inRunning' = <<>>
     /\ UNCHANGED <<inReady, inSuspended>>
 
-ReleaseTransition ==
+\* waiting -> ready
+Release ==
     \E i \in 1..Len(inWaiting):
         /\ inWaiting' = RemoveFromSequenceByIndex(inWaiting, i)
         /\ AddToQueue(inWaiting[i])
-        /\ UNCHANGED <<isRunning, inSuspended>>
+        /\ UNCHANGED <<inRunning, inSuspended>>
 
+\* Работа системы
 Next ==
-    \/ /\ StartTransition
-       /\ PreemptTransition
-    \/ /\ ~StartTransition
-       /\ \/ ActivateTransition
-          \/ TerminateTransition
-          \/ WaitTransition
-          \/ ReleaseTransition
-
-RunningCountInvariant ==  Len(isRunning) =< 1
-
+    \/ /\ Start
+       /\ Preempt
+    \/ /\ ~Start
+       /\ \/ Activate
+          \/ Terminate
+          \/ Wait
+          \/ Release
+RunningCountInvariant ==  Len(inRunning) =< 1
 CurrentReadyCountInvariant ==  CurrentReadyCount =< COUNT_IN_READY
-
 PriorityInvariant ==
-    \/ isRunning = <<>>
-    \/ /\ isRunning /= <<>>
+    \/ inRunning = <<>>
+    \/ /\ inRunning /= <<>>
        /\ CASE
-          (inReady[3] /= <<>> /\ isRunning[1].priority < 3) -> StartTransition
-          [] (inReady[2] /= <<>> /\ isRunning[1].priority < 2) -> StartTransition
-          [] (inReady[1] /= <<>> /\ isRunning[1].priority < 1) -> StartTransition
+          (inReady[3] /= <<>> /\ inRunning[1].priority < 3) -> Start
+          [] (inReady[2] /= <<>> /\ inRunning[1].priority < 2) -> Start
+          [] (inReady[1] /= <<>> /\ inRunning[1].priority < 1) -> Start
           [] OTHER -> TRUE
 =============================================================================
