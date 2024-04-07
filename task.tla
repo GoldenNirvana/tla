@@ -98,7 +98,7 @@ release ==
 
 Properties ==
     /\ Len(inRunning) =< 1
-    /\ CurrentReadyCount =< COUNT_IN_READY
+    /\ currentReadyCount =< MAX_COUNT_IN_READY
     /\ (inRunning = <<>>)
     \/ /\ (inRunning /= <<>>)
        /\ CASE
@@ -108,11 +108,11 @@ Properties ==
           [] OTHER -> TRUE
 
 Next ==
-    \/ /\ Start
-       /\ Preempt
-    \/ /\ ~Start
-       /\ \/ Activate
-          \/ Terminate
-          \/ Wait
-          \/ Release
+    \/ /\ start
+       /\ preempt
+    \/ /\ ~start
+       /\ \/ activate
+          \/ terminate
+          \/ wait
+          \/ release
 =============================================================================
