@@ -33,10 +33,10 @@ AddToQueue(task) ==
     /\ CurrentReadyCount < COUNT_IN_READY
     /\ inReady' = [inReady EXCEPT ![task.priority] = Append(inReady[task.priority], task)]
 
-Swap(toPop, toAddToQueue) ==
+preeptTask(deletedTask, preemptedTask) ==
     inReady' = [inReady EXCEPT
-        ![toPop.priority] = Tail(inReady[toPop.priority]),
-        ![toAddToQueue.priority] = Append(inReady[toAddToQueue.priority], toAddToQueue)]
+        ![deletedTask.priority] = Tail(inReady[deletedTask.priority]),
+        ![preemptedTask.priority] = Append(inReady[preemptedTask.priority], preemptedTask)]
 
 \* ready -> running
 RunTask(task) ==
@@ -45,7 +45,7 @@ RunTask(task) ==
        /\ Len(inReady[task.priority]) > 0
        /\ inRunning' = Append(inRunning, task)
     \/ /\ inRunning /= <<>>
-       /\ Swap(task, inRunning[1])
+       /\ preeptTask(task, inRunning[1])
        /\ inRunning' = <<task>>
 
 \* suspended -> ready
