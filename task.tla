@@ -26,7 +26,6 @@ RemoveFromSequenceByIndex(sequence, index) ==
 
 \* Удаление из очереди
 PopFromSequence(task) ==
-    Len(inReady[task.priority]) > 0
     /\ inReady' = [inReady EXCEPT ![task.priority] = SubSeq(inReady[task.priority], 2, Len(inReady[task.priority]))]
 
 \* Добавление в очередь
@@ -43,6 +42,7 @@ Swap(toPop, toAddToQueue) ==
 RunTask(task) ==
     \/ /\ inRunning = <<>>
        /\ PopFromSequence(task)
+       /\ Len(inReady[task.priority]) > 0
        /\ inRunning' = Append(inRunning, task)
     \/ /\ inRunning /= <<>>
        /\ Swap(task, inRunning[1])
