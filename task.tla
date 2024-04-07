@@ -2,11 +2,11 @@
 
 EXTENDS Integers, Sequences
 VARIABLES inReady, inSuspended, inWaiting, inRunning
-COUNT == 1
+COUNT == 2
 COUNT_IN_READY == 1
 PRIORITIES == 0..3
-TYPES == { "basic", "extended" }
-TASK == [ type: TYPES,  priority: PRIORITIES]
+TYPES == {"basic", "extended"}
+TASK == [type: TYPES,  priority: PRIORITIES]
 
 \* Изначально COUNT задач находятся в suspended, и 0 в остальных состояниях
 Init ==
@@ -96,7 +96,17 @@ Release ==
         /\ AddToQueue(inWaiting[i])
         /\ UNCHANGED <<inRunning, inSuspended>>
 
-\* Работа системы
+Properties ==
+    /\ Len(inRunning) =< 1
+    /\ CurrentReadyCount =< COUNT_IN_READY
+    /\ (inRunning = <<>>)
+    \/ /\ (inRunning /= <<>>)
+       /\ CASE
+          (inReady[3] /= <<>> /\ inRunning[1].priority < 3) -> TRUE
+          [] (inReady[2] /= <<>> /\ inRunning[1].priority < 2) -> TRUE
+          [] (inReady[1] /= <<>> /\ inRunning[1].priority < 1) -> TRUE
+          [] OTHER -> TRUE
+
 Next ==
     \/ /\ Start
        /\ Preempt
@@ -105,14 +115,4 @@ Next ==
           \/ Terminate
           \/ Wait
           \/ Release
-RunningCountInvariant ==  Len(inRunning) =< 1
-CurrentReadyCountInvariant ==  CurrentReadyCount =< COUNT_IN_READY
-PriorityInvariant ==
-    \/ inRunning = <<>>
-    \/ /\ inRunning /= <<>>
-       /\ CASE
-          (inReady[3] /= <<>> /\ inRunning[1].priority < 3) -> Start
-          [] (inReady[2] /= <<>> /\ inRunning[1].priority < 2) -> Start
-          [] (inReady[1] /= <<>> /\ inRunning[1].priority < 1) -> Start
-          [] OTHER -> TRUE
 =============================================================================
