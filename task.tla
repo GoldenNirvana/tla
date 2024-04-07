@@ -2,7 +2,7 @@
 
 EXTENDS Integers, Sequences
 VARIABLES inReady, inSuspended, inWaiting, inRunning
-TASK_COUNT == 2
+TASK_COUNT == 4
 MAX_COUNT_IN_READY == 1
 PRIORITIES == 0..3
 TYPES == {"basic", "extended"}
@@ -64,7 +64,7 @@ start ==
                  /\ inReady[priority] /= <<>>
                  /\ inRunning[1].priority < priority
 
-\* running - ready
+\* running -> ready
 preempt ==
     /\ CASE
        (inReady[3] /= <<>>) -> runTask(inReady[3][1])
