@@ -31,7 +31,7 @@ AddToQueue(task) ==
 
 \* Удаление из очереди
 Pop(task) ==
-    /\ inReady[task.priority] /= <<>>
+    Len(inReady[task.priority]) > 0
     /\ inReady' = [inReady EXCEPT ![task.priority] = Tail(inReady[task.priority])]
 
 Swap(toPop, toAddToQueue) ==
