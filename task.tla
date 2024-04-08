@@ -2,7 +2,7 @@
 
 EXTENDS Integers, Sequences
 VARIABLES inReady, inSuspended, inWaiting, inRunning
-TASK_COUNT == 4
+TASK_COUNT == 5
 MAX_COUNT_IN_READY == 1
 PRIORITIES == 0..3
 TYPES == {"basic", "extended"}
@@ -16,7 +16,15 @@ Init ==
     /\ inWaiting = <<>>
 
 \* Всего задач в ready
-currentReadyCount == Len(inReady[0]) + Len(inReady[1]) + Len(inReady[2]) + Len(inReady[3])
+currentReadyCount ==  Len(inReady[0])
+                    + Len(inReady[1])
+                    + Len(inReady[2])
+                    + Len(inReady[3])
+
+\* Добавление в очередь
+addToQueueReady(task) ==
+    /\ currentReadyCount < MAX_COUNT_IN_READY
+    /\ inReady' = [inReady EXCEPT ![task.priority] = Append(inReady[task.priority], task)]
 
 \* Удаление из очереди по индексу
 removeFromSequenceByIndex(sequence, index) ==
@@ -28,12 +36,7 @@ removeFromSequenceByIndex(sequence, index) ==
 popFromSequence(task) ==
     /\ inReady' = [inReady EXCEPT ![task.priority] = SubSeq(inReady[task.priority], 2, Len(inReady[task.priority]))]
 
-\* Добавление в очередь
-addToQueueReady(task) ==
-    /\ currentReadyCount < MAX_COUNT_IN_READY
-    /\ inReady' = [inReady EXCEPT ![task.priority] = Append(inReady[task.priority], task)]
-
-preeptTask(deletedTask, preemptedTask) ==
+preemptTask(deletedTask, preemptedTask) ==
     inReady' = [inReady EXCEPT
         ![deletedTask.priority] = Tail(inReady[deletedTask.priority]),
         ![preemptedTask.priority] = Append(inReady[preemptedTask.priority], preemptedTask)]
@@ -45,7 +48,7 @@ runTask(task) ==
        /\ Len(inReady[task.priority]) > 0
        /\ inRunning' = Append(inRunning, task)
     \/ /\ inRunning /= <<>>
-       /\ preeptTask(task, inRunning[1])
+       /\ preemptTask(task, inRunning[1])
        /\ inRunning' = <<task>>
 
 \* suspended -> ready
@@ -96,23 +99,21 @@ release ==
         /\ addToQueueReady(inWaiting[i])
         /\ UNCHANGED <<inRunning, inSuspended>>
 
-Properties ==
-    /\ Len(inRunning) =< 1
-    /\ currentReadyCount =< MAX_COUNT_IN_READY
-    /\ (inRunning = <<>>)
-    \/ /\ (inRunning /= <<>>)
-       /\ CASE
-          (inReady[3] /= <<>> /\ inRunning[1].priority < 3) -> TRUE
-          [] (inReady[2] /= <<>> /\ inRunning[1].priority < 2) -> TRUE
-          [] (inReady[1] /= <<>> /\ inRunning[1].priority < 1) -> TRUE
-          [] OTHER -> TRUE
+Inv1 == Len(inRunning) =< 1
+Inv2 == currentReadyCount =< MAX_COUNT_IN_READY
+Inv3 ==
+        \/ Len(inRunning) = 0
+        \/ CASE
+                (inReady[3] /= <<>> /\ inRunning[1].priority < 3) -> TRUE
+                [] (inReady[2] /= <<>> /\ inRunning[1].priority < 2) -> TRUE
+                [] (inReady[1] /= <<>> /\ inRunning[1].priority < 1) -> TRUE
+                [] OTHER -> TRUE
 
 Next ==
-    \/ /\ start
-       /\ preempt
-    \/ /\ ~start
-       /\ \/ activate
-          \/ terminate
-          \/ wait
-          \/ release
+    \/ /\ start /\ preempt
+    \/ /\ ~start /\
+                    \/ activate
+                    \/ terminate
+                    \/ wait
+                    \/ release
 =============================================================================
