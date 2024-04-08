@@ -1,7 +1,7 @@
 /--------------------------------- MODULE task ---------------------------------
 
 EXTENDS Integers, Sequences
-VARIABLES inReady, inSuspended, inWaiting, inRunning, f
+VARIABLES inReady, inSuspended, inWaiting, inRunning
 TASK_COUNT == 3
 MAX_COUNT_IN_READY == 1
 PRIORITIES == 0..3
@@ -10,7 +10,6 @@ TASK == [type: TYPES,  priority: PRIORITIES]
 
 \* Изначально COUNT задач находятся в suspended, и 0 в остальных состояниях
 Init ==
-    f = TRUE
     /\ inSuspended \in [1..TASK_COUNT -> TASK]
     /\ inReady = [i \in PRIORITIES |-> <<>>]
     /\ inRunning = <<>>
@@ -57,7 +56,7 @@ activate ==
     \E i \in 1..Len(inSuspended):
         /\ inSuspended' = removeFromSequenceByIndex(inSuspended, i)
         /\ addToQueueReady(inSuspended[i])
-        /\ UNCHANGED <<inRunning, inWaiting, f>>
+        /\ UNCHANGED <<inRunning, inWaiting>>
 
 \* Изменение выполняющейся задачи, реализация логики вытеснения низкоприоритетной задачи
 start ==
@@ -77,7 +76,6 @@ preempt ==
        [] (inReady[0] /= <<>>) -> runTask(inReady[0][1])
        [] OTHER -> FALSE
     /\ UNCHANGED <<inSuspended, inWaiting>>
-    /\ f' = FALSE
 
 
 \* running -> suspended
@@ -85,7 +83,7 @@ terminate ==
     /\ inRunning /= <<>>
     /\ inRunning' = <<>>
     /\ inSuspended' = inSuspended \o inRunning
-    /\ UNCHANGED <<inReady, inWaiting, f>>
+    /\ UNCHANGED <<inReady, inWaiting>>
 
 \* running -> waiting
 wait ==
@@ -93,35 +91,24 @@ wait ==
     /\ inRunning[1].type = "extended"
     /\ inWaiting' = inWaiting \o inRunning
     /\ inRunning' = <<>>
-    /\ UNCHANGED <<inReady, inSuspended, f>>
+    /\ UNCHANGED <<inReady, inSuspended>>
 
 \* waiting -> ready
 release ==
     \E i \in 1..Len(inWaiting):
         /\ inWaiting' = removeFromSequenceByIndex(inWaiting, i)
         /\ addToQueueReady(inWaiting[i])
-        /\ UNCHANGED <<inRunning, inSuspended, f>>
+        /\ UNCHANGED <<inRunning, inSuspended>>
 
 Inv1 == Len(inRunning) =< 1
 Inv2 == currentReadyCount =< MAX_COUNT_IN_READY
 Inv3 ==
-        IF Len(inRunning) > 0
-        THEN
-            IF f
-            THEN
-
-            LET q = CASE
-                                (inReady[3] /= <<>> /\ inRunning[1].priority < 3) -> FALSE
-                                [] (inReady[2] /= <<>> /\ inRunning[1].priority < 2) -> FALSE
-                                [] (inReady[1] /= <<>> /\ inRunning[1].priority < 1) -> FALSE
+        \/ Len(inRunning) = 0
+        \/ CASE
+                                (inReady[3] /= <<>> /\ inRunning[1].priority < 3) -> TRUE
+                                [] (inReady[2] /= <<>> /\ inRunning[1].priority < 2) -> TRUE
+                                [] (inReady[1] /= <<>> /\ inRunning[1].priority < 1) -> TRUE
                                 [] OTHER -> TRUE
-            IN
-                TRUE
-            ELSE
-
-
-        ELSE
-            TRUE
 Next ==
     \/ /\ start /\ preempt
     \/ /\ ~start /\
