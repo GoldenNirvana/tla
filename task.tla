@@ -2,8 +2,8 @@
 
 EXTENDS Integers, Sequences
 VARIABLES inReady, inSuspended, inWaiting, inRunning, lastAction
-TASK_COUNT == 5
-MAX_COUNT_IN_READY == 2
+TASK_COUNT == 3
+MAX_COUNT_IN_READY == 3
 PRIORITIES == 0..3
 TYPES == {"basic", "extended"}
 TASK == [type: TYPES,  priority: PRIORITIES]
@@ -33,10 +33,6 @@ removeFromSequenceByIndex(sequence, index) ==
     THEN SubSeq(sequence, 1, index - 1) \o SubSeq(sequence, index + 1, Len(sequence))
     ELSE sequence
 
-\* Удаление из очереди
-popFromSequence(task) ==
-    /\ inReady' = [inReady EXCEPT ![task.priority] = SubSeq(inReady[task.priority], 2, Len(inReady[task.priority]))]
-
 preemptTask(deletedTask, preemptedTask) ==
     inReady' = [inReady EXCEPT
         ![deletedTask.priority] = Tail(inReady[deletedTask.priority]),
@@ -45,7 +41,7 @@ preemptTask(deletedTask, preemptedTask) ==
 \* ready -> running
 runTask(task) ==
     \/ /\ inRunning = <<>>
-       /\ popFromSequence(task)
+       /\ inReady' = [inReady EXCEPT ![task.priority] = SubSeq(inReady[task.priority], 2, Len(inReady[task.priority]))]
        /\ Len(inReady[task.priority]) > 0
        /\ inRunning' = Append(inRunning, task)
     \/ /\ inRunning /= <<>>
@@ -110,13 +106,13 @@ Inv1 == Len(inRunning) =< 1
 Inv2 == currentReadyCount =< MAX_COUNT_IN_READY
 Inv3 ==
         \/ Len(inRunning) = 0
-        \/ CASE
-                                (inReady[3] /= <<>> /\ inRunning[1].priority < 3) -> FALSE
-                                [] (inReady[2] /= <<>> /\ inRunning[1].priority < 2) -> FALSE
-                                [] (inReady[1] /= <<>> /\ inRunning[1].priority < 1) -> FALSE
-                                [] OTHER -> TRUE
         \/ lastAction = "release"
         \/ lastAction = "activate"
+        \/ CASE
+            (inReady[3] /= <<>> /\ inRunning[1].priority < 3) -> FALSE
+            [] (inReady[2] /= <<>> /\ inRunning[1].priority < 2) -> FALSE
+            [] (inReady[1] /= <<>> /\ inRunning[1].priority < 1) -> FALSE
+            [] OTHER -> TRUE
 
 Next ==
     \/ /\ start /\ preempt
@@ -125,4 +121,5 @@ Next ==
                     \/ terminate
                     \/ wait
                     \/ release
-=============================================================================
+
+====
