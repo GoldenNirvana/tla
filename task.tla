@@ -2,8 +2,8 @@
 
 EXTENDS Integers, Sequences
 VARIABLES inReady, inSuspended, inWaiting, inRunning, lastAction
-TASK_COUNT == 3
-MAX_COUNT_IN_READY == 3
+TASK_COUNT == 2
+MAX_COUNT_IN_READY == 1
 PRIORITIES == 0..3
 TYPES == {"basic", "extended"}
 TASK == [type: TYPES,  priority: PRIORITIES]
