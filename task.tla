@@ -8,7 +8,6 @@ PRIORITIES == 0..3
 TYPES == {"basic", "extended"}
 TASK == [type: TYPES,  priority: PRIORITIES]
 
-\* Изначально COUNT задач находятся в suspended, и 0 в остальных состояниях
 Init ==
     /\ inSuspended \in [1..TASK_COUNT -> TASK]
     /\ inReady = [i \in PRIORITIES |-> <<>>]
@@ -16,18 +15,15 @@ Init ==
     /\ inWaiting = <<>>
     /\ lastAction = "None"
 
-\* Всего задач в ready
 currentReadyCount ==  Len(inReady[0])
                     + Len(inReady[1])
                     + Len(inReady[2])
                     + Len(inReady[3])
 
-\* Добавление в очередь
 addToQueueReady(task) ==
     /\ currentReadyCount < MAX_COUNT_IN_READY
     /\ inReady' = [inReady EXCEPT ![task.priority] = Append(inReady[task.priority], task)]
 
-\* Удаление из очереди по индексу
 removeFromSequenceByIndex(sequence, index) ==
     IF index <= Len(sequence)
     THEN SubSeq(sequence, 1, index - 1) \o SubSeq(sequence, index + 1, Len(sequence))
@@ -38,7 +34,6 @@ preemptTask(deletedTask, preemptedTask) ==
         ![deletedTask.priority] = Tail(inReady[deletedTask.priority]),
         ![preemptedTask.priority] = Append(inReady[preemptedTask.priority], preemptedTask)]
 
-\* ready -> running
 runTask(task) ==
     \/ /\ inRunning = <<>>
        /\ inReady' = [inReady EXCEPT ![task.priority] = SubSeq(inReady[task.priority], 2, Len(inReady[task.priority]))]
@@ -56,7 +51,7 @@ activate ==
         /\ UNCHANGED <<inRunning, inWaiting>>
         /\ lastAction' = "activate"
 
-\* Изменение выполняющейся задачи, реализация логики вытеснения низкоприоритетной задачи
+\* ready -> running
 start ==
     /\ currentReadyCount /= 0
     /\ \/ inRunning = <<>>
