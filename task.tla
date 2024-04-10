@@ -1,9 +1,9 @@
 /--------------------------------- MODULE task ---------------------------------
 
 EXTENDS Integers, Sequences
-VARIABLES inReady, inSuspended, inWaiting, inRunning
-TASK_COUNT == 3
-MAX_COUNT_IN_READY == 1
+VARIABLES inReady, inSuspended, inWaiting, inRunning, lastAction
+TASK_COUNT == 5
+MAX_COUNT_IN_READY == 2
 PRIORITIES == 0..3
 TYPES == {"basic", "extended"}
 TASK == [type: TYPES,  priority: PRIORITIES]
@@ -14,6 +14,7 @@ Init ==
     /\ inReady = [i \in PRIORITIES |-> <<>>]
     /\ inRunning = <<>>
     /\ inWaiting = <<>>
+    /\ lastAction = "None"
 
 \* Всего задач в ready
 currentReadyCount ==  Len(inReady[0])
@@ -57,6 +58,7 @@ activate ==
         /\ inSuspended' = removeFromSequenceByIndex(inSuspended, i)
         /\ addToQueueReady(inSuspended[i])
         /\ UNCHANGED <<inRunning, inWaiting>>
+        /\ lastAction' = "activate"
 
 \* Изменение выполняющейся задачи, реализация логики вытеснения низкоприоритетной задачи
 start ==
@@ -76,6 +78,7 @@ preempt ==
        [] (inReady[0] /= <<>>) -> runTask(inReady[0][1])
        [] OTHER -> FALSE
     /\ UNCHANGED <<inSuspended, inWaiting>>
+    /\ lastAction' = "preempt"
 
 
 \* running -> suspended
@@ -84,6 +87,7 @@ terminate ==
     /\ inRunning' = <<>>
     /\ inSuspended' = inSuspended \o inRunning
     /\ UNCHANGED <<inReady, inWaiting>>
+    /\ lastAction' = "terminate"
 
 \* running -> waiting
 wait ==
@@ -92,6 +96,7 @@ wait ==
     /\ inWaiting' = inWaiting \o inRunning
     /\ inRunning' = <<>>
     /\ UNCHANGED <<inReady, inSuspended>>
+    /\ lastAction' = "wait"
 
 \* waiting -> ready
 release ==
@@ -99,16 +104,20 @@ release ==
         /\ inWaiting' = removeFromSequenceByIndex(inWaiting, i)
         /\ addToQueueReady(inWaiting[i])
         /\ UNCHANGED <<inRunning, inSuspended>>
+        /\ lastAction' = "release"
 
 Inv1 == Len(inRunning) =< 1
 Inv2 == currentReadyCount =< MAX_COUNT_IN_READY
 Inv3 ==
         \/ Len(inRunning) = 0
         \/ CASE
-                                (inReady[3] /= <<>> /\ inRunning[1].priority < 3) -> TRUE
-                                [] (inReady[2] /= <<>> /\ inRunning[1].priority < 2) -> TRUE
-                                [] (inReady[1] /= <<>> /\ inRunning[1].priority < 1) -> TRUE
+                                (inReady[3] /= <<>> /\ inRunning[1].priority < 3) -> FALSE
+                                [] (inReady[2] /= <<>> /\ inRunning[1].priority < 2) -> FALSE
+                                [] (inReady[1] /= <<>> /\ inRunning[1].priority < 1) -> FALSE
                                 [] OTHER -> TRUE
+        \/ lastAction = "release"
+        \/ lastAction = "activate"
+
 Next ==
     \/ /\ start /\ preempt
     \/ /\ ~start /\
