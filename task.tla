@@ -37,7 +37,6 @@ preemptTask(deletedTask, preemptedTask) ==
 runTask(task) ==
     \/ /\ inRunning = <<>>
        /\ inReady' = [inReady EXCEPT ![task.priority] = SubSeq(inReady[task.priority], 2, Len(inReady[task.priority]))]
-       /\ Len(inReady[task.priority]) > 0
        /\ inRunning' = Append(inRunning, task)
     \/ /\ inRunning /= <<>>
        /\ preemptTask(task, inRunning[1])
@@ -52,7 +51,7 @@ activate ==
         /\ lastAction' = "activate"
 
 \* ready -> running
-start ==
+isExistsTaskToStart ==
     /\ currentReadyCount /= 0
     /\ \/ inRunning = <<>>
        \/ /\ inRunning /= <<>>
@@ -61,7 +60,7 @@ start ==
                  /\ inRunning[1].priority < priority
 
 \* running -> ready
-preempt ==
+startAndPreempt ==
     /\ CASE
        (inReady[3] /= <<>>) -> runTask(inReady[3][1])
        [] (inReady[2] /= <<>>) -> runTask(inReady[2][1])
@@ -110,8 +109,8 @@ Inv3 ==
             [] OTHER -> TRUE
 
 Next ==
-    \/ /\ start /\ preempt
-    \/ /\ ~start /\
+    \/ /\ isExistsTaskToStart /\ startAndPreempt
+    \/ /\ ~isExistsTaskToStart /\
                     \/ activate
                     \/ terminate
                     \/ wait
